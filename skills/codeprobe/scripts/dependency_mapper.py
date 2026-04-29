@@ -11,11 +11,13 @@ Usage:
     python3 dependency_mapper.py /path/to/project
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
 import sys
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from _common import (
     MAX_FILE_SIZE,
@@ -23,14 +25,14 @@ from _common import (
 )
 
 # Common extensions to try when resolving an import path to a file
-JS_RESOLVE_EXTENSIONS: List[str] = [
+JS_RESOLVE_EXTENSIONS: list[str] = [
     ".js", ".ts", ".jsx", ".tsx",
     "/index.js", "/index.ts",
 ]
 
-PY_RESOLVE_EXTENSIONS: List[str] = [".py", "/__init__.py"]
+PY_RESOLVE_EXTENSIONS: list[str] = [".py", "/__init__.py"]
 
-PHP_RESOLVE_EXTENSIONS: List[str] = [".php"]
+PHP_RESOLVE_EXTENSIONS: list[str] = [".php"]
 
 # --- Import patterns by language ---
 
@@ -73,8 +75,10 @@ GO_IMPORT_BLOCK_PATTERN: re.Pattern = re.compile(
 )
 GO_IMPORT_LINE_PATTERN: re.Pattern = re.compile(r'"([^"]+)"')
 
-# Well-known Python stdlib top-level modules (partial list for filtering)
-PYTHON_STDLIB_TOP: Set[str] = {
+# Python's top-level stdlib module names. Use sys.stdlib_module_names when
+# available (Python 3.10+); fall back to a curated list for 3.8/3.9 so the
+# stdlib filter still works on older interpreters.
+_STDLIB_FALLBACK: frozenset[str] = frozenset({
     "abc", "aifc", "argparse", "array", "ast", "asynchat", "asyncio",
     "asyncore", "atexit", "audioop", "base64", "bdb", "binascii",
     "binhex", "bisect", "builtins", "bz2", "calendar", "cgi", "cgitb",
@@ -108,10 +112,11 @@ PYTHON_STDLIB_TOP: Set[str] = {
     "uu", "uuid", "venv", "warnings", "wave", "weakref", "webbrowser",
     "winreg", "winsound", "wsgiref", "xdrlib", "xml", "xmlrpc",
     "zipapp", "zipfile", "zipimport", "zlib", "_thread",
-}
+})
+PYTHON_STDLIB_TOP = getattr(sys, "stdlib_module_names", _STDLIB_FALLBACK)
 
 
-def read_file_content(filepath: str) -> Optional[str]:
+def read_file_content(filepath: str) -> str | None:
     """Read a file and return its text content, or None on failure."""
     try:
         if os.path.getsize(filepath) > MAX_FILE_SIZE:
@@ -134,8 +139,8 @@ def _is_within_root(path: str, root: str) -> bool:
         return False
 
 
-def resolve_path(base_dir: str, candidate: str, extensions: List[str],
-                 root: str) -> Optional[str]:
+def resolve_path(base_dir: str, candidate: str, extensions: list[str],
+                 root: str) -> str | None:
     """Try to resolve a candidate path to an actual file relative to root.
 
     Tries the candidate as-is first, then appends each extension.
@@ -161,9 +166,9 @@ def resolve_path(base_dir: str, candidate: str, extensions: List[str],
 # --- Language-specific import extractors ---
 
 def extract_php_imports(content: str, file_rel: str,
-                        root: str) -> List[str]:
+                        root: str) -> list[str]:
     """Extract imports from a PHP file."""
-    imports: List[str] = []
+    imports: list[str] = []
     file_dir = os.path.join(root, os.path.dirname(file_rel))
 
     # use Namespace\Class;  ->  resolve namespace to path
@@ -186,9 +191,9 @@ def extract_php_imports(content: str, file_rel: str,
 
 
 def extract_js_imports(content: str, file_rel: str,
-                       root: str) -> List[str]:
+                       root: str) -> list[str]:
     """Extract imports from a JavaScript/TypeScript file."""
-    imports: List[str] = []
+    imports: list[str] = []
     file_dir = os.path.join(root, os.path.dirname(file_rel))
 
     for pattern in (JS_IMPORT_FROM_PATTERN, JS_REQUIRE_PATTERN):
@@ -209,7 +214,7 @@ def extract_js_imports(content: str, file_rel: str,
 
 
 def extract_python_imports(content: str, file_rel: str,
-                           root: str) -> List[str]:
+                           root: str) -> list[str]:
     """Extract imports from a Python file.
 
     Resolves three import shapes:
@@ -220,7 +225,7 @@ def extract_python_imports(content: str, file_rel: str,
         each leading dot beyond the first walks one directory up from the
         importer's directory before resolution.
     """
-    imports: List[str] = []
+    imports: list[str] = []
     file_dir = os.path.join(root, os.path.dirname(file_rel))
 
     for match in PY_FROM_IMPORT_PATTERN.finditer(content):
@@ -270,10 +275,10 @@ def extract_python_imports(content: str, file_rel: str,
 
 
 def extract_go_imports(content: str, file_rel: str,
-                       root: str) -> List[str]:
+                       root: str) -> list[str]:
     """Extract imports from a Go file."""
-    imports: List[str] = []
-    raw_paths: List[str] = []
+    imports: list[str] = []
+    raw_paths: list[str] = []
 
     # Single-line imports
     for match in GO_IMPORT_SINGLE_PATTERN.finditer(content):
@@ -311,11 +316,11 @@ EXTRACTOR_MAP = {
 
 
 def build_dependency_graph(
-    file_paths: List[str], root: str,
-) -> Dict[str, List[str]]:
+    file_paths: list[str], root: str,
+) -> dict[str, list[str]]:
     """Build an adjacency list of file -> [imported files]."""
-    graph: Dict[str, List[str]] = {}
-    file_set: Set[str] = set(file_paths)
+    graph: dict[str, list[str]] = {}
+    file_set: set[str] = set(file_paths)
 
     for rel_path in file_paths:
         ext = os.path.splitext(rel_path)[1].lower()
@@ -331,8 +336,8 @@ def build_dependency_graph(
         raw_imports = extractor(content, rel_path, root)
 
         # Deduplicate while preserving order, and keep only project files
-        seen: Set[str] = set()
-        resolved: List[str] = []
+        seen: set[str] = set()
+        resolved: list[str] = []
         for imp in raw_imports:
             normalised = imp.replace(os.sep, "/")
             if normalised not in seen:
@@ -345,7 +350,7 @@ def build_dependency_graph(
     return graph
 
 
-def detect_cycles(graph: Dict[str, List[str]]) -> List[Dict[str, Any]]:
+def detect_cycles(graph: dict[str, list[str]]) -> list[dict[str, Any]]:
     """Run DFS cycle detection on the dependency graph.
 
     Returns a list of cycle descriptors, each with a 'chain' (list of nodes
@@ -353,12 +358,12 @@ def detect_cycles(graph: Dict[str, List[str]]) -> List[Dict[str, Any]]:
     ('direct' for 2-node cycles, 'transitive' for 3+ nodes).
     """
     WHITE, GREY, BLACK = 0, 1, 2
-    colour: Dict[str, int] = {node: WHITE for node in graph}
-    parent_chain: Dict[str, List[str]] = {}
-    cycles: List[List[str]] = []
-    seen_cycle_keys: Set[str] = set()
+    colour: dict[str, int] = {node: WHITE for node in graph}
+    parent_chain: dict[str, list[str]] = {}
+    cycles: list[list[str]] = []
+    seen_cycle_keys: set[str] = set()
 
-    def dfs(node: str, path: List[str]) -> None:
+    def dfs(node: str, path: list[str]) -> None:
         colour[node] = GREY
         parent_chain[node] = list(path)
 
@@ -394,7 +399,7 @@ def detect_cycles(graph: Dict[str, List[str]]) -> List[Dict[str, Any]]:
         if colour[node] == WHITE:
             dfs(node, [node])
 
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for cycle in cycles:
         # Number of unique nodes is len(cycle) - 1 (last repeats the first)
         unique_count = len(cycle) - 1
@@ -405,15 +410,15 @@ def detect_cycles(graph: Dict[str, List[str]]) -> List[Dict[str, Any]]:
 
 
 def compute_summary(
-    graph: Dict[str, List[str]],
-    circular: List[Dict[str, Any]],
+    graph: dict[str, list[str]],
+    circular: list[dict[str, Any]],
     total_files: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute aggregate summary statistics from the dependency graph."""
     total_edges = sum(len(deps) for deps in graph.values())
 
     # Count how many times each file is imported
-    import_counts: Dict[str, int] = {}
+    import_counts: dict[str, int] = {}
     for deps in graph.values():
         for dep in deps:
             import_counts[dep] = import_counts.get(dep, 0) + 1

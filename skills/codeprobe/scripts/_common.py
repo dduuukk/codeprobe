@@ -5,13 +5,14 @@ dependency_mapper.py, and complexity_scorer.py can share file traversal
 without drift.
 """
 
+from __future__ import annotations
+
 import os
 import re
-from typing import List, Set
 
 
 # Directories to skip during traversal
-SKIP_DIRS: Set[str] = {
+SKIP_DIRS: set[str] = {
     "node_modules",
     "vendor",
     ".git",
@@ -25,7 +26,7 @@ SKIP_DIRS: Set[str] = {
 }
 
 # Recognized source file extensions
-RECOGNIZED_EXTENSIONS: Set[str] = {
+RECOGNIZED_EXTENSIONS: set[str] = {
     ".py",
     ".js",
     ".ts",
@@ -50,7 +51,7 @@ RECOGNIZED_EXTENSIONS: Set[str] = {
 # match (e.g., file_stats.count_methods) can ignore the group; callers that
 # need the identifier (e.g., complexity_scorer._match_function) read it via
 # m.group("name").
-METHOD_PATTERNS: List[re.Pattern] = [
+METHOD_PATTERNS: list[re.Pattern] = [
     # Python
     re.compile(r"^\s*def\s+(?P<name>\w+)"),
     # JavaScript/TypeScript/PHP named functions
@@ -85,9 +86,9 @@ def is_binary(filepath: str) -> bool:
         return True
 
 
-def collect_files(root_dir: str) -> List[str]:
+def collect_files(root_dir: str) -> list[str]:
     """Walk the directory tree and collect recognized source files."""
-    files: List[str] = []
+    files: list[str] = []
     root = os.path.abspath(root_dir)
 
     for dirpath, dirnames, filenames in os.walk(root):

@@ -11,11 +11,13 @@ Usage:
     python3 complexity_scorer.py /path/to/project
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
 import sys
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from _common import (
     MAX_FILE_SIZE,
@@ -23,11 +25,11 @@ from _common import (
     collect_files,
 )
 
-INDENT_LANGUAGES: Set[str] = {".py"}
-BRACE_LANGUAGES: Set[str] = {".js", ".ts", ".jsx", ".tsx", ".php", ".java", ".go", ".rs"}
+INDENT_LANGUAGES: set[str] = {".py"}
+BRACE_LANGUAGES: set[str] = {".js", ".ts", ".jsx", ".tsx", ".php", ".java", ".go", ".rs"}
 
 # Decision point patterns — each match adds 1 to base complexity of 1
-DECISION_PATTERNS: List[re.Pattern] = [
+DECISION_PATTERNS: list[re.Pattern] = [
     re.compile(r"\b(?:if|elif|elsif)\b"),
     re.compile(r"\belse\s+if\b"),
     re.compile(r"\b(?:for|while)\b"),
@@ -42,7 +44,7 @@ TERNARY_PATTERN: re.Pattern = re.compile(r"(?<!\w)\?(?!\?)")
 NULL_COALESCE_PATTERN: re.Pattern = re.compile(r"\?\?")
 
 
-def _match_function(line: str) -> Optional[str]:
+def _match_function(line: str) -> str | None:
     """Return the function name if the line declares a function, else None."""
     for pattern in METHOD_PATTERNS:
         m = pattern.match(line)
@@ -83,15 +85,15 @@ def _count_decision_points(line: str, ext: str) -> int:
     return count
 
 
-def _extract_functions_indent(lines: List[str], ext: str) -> List[Tuple[str, int, List[str]]]:
+def _extract_functions_indent(lines: list[str], ext: str) -> list[tuple[str, int, list[str]]]:
     """Extract functions from indentation-based languages (Python)."""
-    functions: List[Tuple[str, int, List[str]]] = []
+    functions: list[tuple[str, int, list[str]]] = []
     i = 0
     while i < len(lines):
         func_name = _match_function(lines[i])
         if func_name is not None:
             func_indent = _indent_level(lines[i])
-            body_lines: List[str] = []
+            body_lines: list[str] = []
             j = i + 1
             while j < len(lines):
                 if lines[j].strip() == "":
@@ -109,15 +111,15 @@ def _extract_functions_indent(lines: List[str], ext: str) -> List[Tuple[str, int
     return functions
 
 
-def _extract_functions_brace(lines: List[str], ext: str) -> List[Tuple[str, int, List[str]]]:
+def _extract_functions_brace(lines: list[str], ext: str) -> list[tuple[str, int, list[str]]]:
     """Extract functions from brace-based languages (JS, TS, Java, Go, etc.)."""
-    functions: List[Tuple[str, int, List[str]]] = []
+    functions: list[tuple[str, int, list[str]]] = []
     i = 0
     while i < len(lines):
         func_name = _match_function(lines[i])
         if func_name is not None:
             brace_depth, found_open = 0, False
-            body_lines: List[str] = []
+            body_lines: list[str] = []
             j = i
             while j < len(lines):
                 current = _strip_strings_and_comments(lines[j])
@@ -139,12 +141,12 @@ def _extract_functions_brace(lines: List[str], ext: str) -> List[Tuple[str, int,
     return functions
 
 
-def _extract_functions_simple(lines: List[str], ext: str) -> List[Tuple[str, int, List[str]]]:
+def _extract_functions_simple(lines: list[str], ext: str) -> list[tuple[str, int, list[str]]]:
     """Fallback: collect lines between consecutive function declarations."""
-    functions: List[Tuple[str, int, List[str]]] = []
-    current_func: Optional[str] = None
+    functions: list[tuple[str, int, list[str]]] = []
+    current_func: str | None = None
     current_line: int = 0
-    current_body: List[str] = []
+    current_body: list[str] = []
     for i, line in enumerate(lines):
         func_name = _match_function(line)
         if func_name is not None:
@@ -169,7 +171,7 @@ def _rate_complexity(complexity: int) -> str:
     return "very_high"
 
 
-def analyze_file(filepath: str, ext: str) -> Optional[List[Dict[str, Any]]]:
+def analyze_file(filepath: str, ext: str) -> list[dict[str, Any]] | None:
     """Analyze a single source file and return per-function complexity data."""
     try:
         if os.path.getsize(filepath) > MAX_FILE_SIZE:
@@ -186,7 +188,7 @@ def analyze_file(filepath: str, ext: str) -> Optional[List[Dict[str, Any]]]:
     else:
         functions = _extract_functions_simple(lines, ext)
 
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for func_name, line_no, body_lines in functions:
         complexity = 1  # base complexity
         for body_line in body_lines:
@@ -200,7 +202,7 @@ def analyze_file(filepath: str, ext: str) -> Optional[List[Dict[str, Any]]]:
     return results
 
 
-def compute_summary(function_entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def compute_summary(function_entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute aggregate statistics from per-function entries."""
     total = len(function_entries)
     if total == 0:
@@ -246,7 +248,7 @@ def main() -> None:
     # Collect and analyze files
     file_paths = collect_files(target_dir)
     root = os.path.abspath(target_dir)
-    function_entries: List[Dict[str, Any]] = []
+    function_entries: list[dict[str, Any]] = []
 
     for rel_path in file_paths:
         full_path = os.path.join(root, rel_path)

@@ -10,12 +10,14 @@ Usage:
     python3 file_stats.py /path/to/project
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from _common import (
     METHOD_PATTERNS,
@@ -24,14 +26,14 @@ from _common import (
 )
 
 # Patterns for test file detection
-TEST_DIR_NAMES: Set[str] = {"test", "tests", "__tests__", "spec"}
-TEST_FILE_PATTERNS: List[re.Pattern] = [
+TEST_DIR_NAMES: set[str] = {"test", "tests", "__tests__", "spec"}
+TEST_FILE_PATTERNS: list[re.Pattern] = [
     re.compile(r"(?:^test_|_test\.|\.test\.|Test[A-Z])", re.IGNORECASE),
     re.compile(r"(?:^spec_|_spec\.|\.spec\.)", re.IGNORECASE),
 ]
 
 # Comment line patterns (basic heuristic)
-COMMENT_PATTERNS: List[re.Pattern] = [
+COMMENT_PATTERNS: list[re.Pattern] = [
     re.compile(r"^\s*//"),       # C-style single-line
     re.compile(r"^\s*#"),        # Python, Ruby, Shell, etc.
     re.compile(r"^\s*/\*"),      # C-style block open
@@ -41,7 +43,7 @@ COMMENT_PATTERNS: List[re.Pattern] = [
 ]
 
 # Class definition patterns by language
-CLASS_PATTERNS: List[re.Pattern] = [
+CLASS_PATTERNS: list[re.Pattern] = [
     # Python, PHP, Java, TypeScript, JavaScript
     re.compile(r"^\s*(?:abstract\s+|final\s+)?class\s+\w+"),
     # Rust struct
@@ -92,7 +94,7 @@ def count_methods(line: str) -> int:
     return 0
 
 
-def analyze_file(filepath: str) -> Optional[Dict[str, Any]]:
+def analyze_file(filepath: str) -> dict[str, Any] | None:
     """Analyze a single source file and return its statistics."""
     try:
         if os.path.getsize(filepath) > MAX_FILE_SIZE:
@@ -133,7 +135,7 @@ def analyze_file(filepath: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def compute_summary(file_entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def compute_summary(file_entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute aggregate statistics from per-file entries."""
     total_files = len(file_entries)
 
@@ -215,7 +217,7 @@ def main() -> None:
     # Collect and analyze files
     file_paths = collect_files(target_dir)
     root = os.path.abspath(target_dir)
-    file_entries: List[Dict[str, Any]] = []
+    file_entries: list[dict[str, Any]] = []
 
     for rel_path in file_paths:
         full_path = os.path.join(root, rel_path)

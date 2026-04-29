@@ -82,6 +82,8 @@ Before routing to any sub-skill, detect the technology stack at the target path.
 | `.js`, `.ts`, `.jsx`, `.tsx` files | JavaScript / TypeScript | `references/javascript-typescript.md` |
 | `.py` files | Python | `references/python.md` |
 | `.jsx`, `.tsx` files + `next.config.*` present | React / Next.js | `references/react-nextjs.md` |
+| `.rs` files or `Cargo.toml` present | Rust | `references/rust.md` |
+| `.c`, `.h` files or `Makefile` / `CMakeLists.txt` present | C | `references/c.md` |
 | `.sql` files or `migrations/` directory | SQL / Database | `references/sql-database.md` |
 | `routes/` directory or API route patterns | API Design | `references/api-design.md` |
 
@@ -143,7 +145,7 @@ Before invoking any sub-skill, the orchestrator MUST pre-load all shared context
 1. **Read the shared preamble** from `shared-preamble.md` (in this skill's directory). This contains the output contract, execution modes, and constraints shared by all sub-skills.
 
 2. **Read all source files** at the target path:
-   - Use Glob to find all source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.php`, `.vue`, `.sql`, `.css`, `.scss` and config files like `next.config.*`, `package.json`, `composer.json`, `requirements.txt`, `.env.example`).
+   - Use Glob to find all source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.php`, `.rs`, `.c`, `.h`, `.vue`, `.sql`, `.css`, `.scss` and config files like `next.config.*`, `package.json`, `composer.json`, `Cargo.toml`, `Makefile`, `CMakeLists.txt`, `requirements.txt`, `.env.example`).
    - Read each file using Read.
    - **Size cap:** If the codebase has more than 50 source files or total LOC exceeds 10,000 lines, do NOT pre-load all files. Instead, pass only the file listing (paths + line counts) and let sub-agents read files they need. Note this in the agent prompt: "Large codebase — file listing provided, use Read for files you need to inspect."
    - Store all file contents as a map: `{filepath: content}`.

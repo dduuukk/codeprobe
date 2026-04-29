@@ -17,25 +17,20 @@ import re
 import sys
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-# Directories to skip during traversal
-SKIP_DIRS: Set[str] = {
-    "node_modules", "vendor", ".git", "__pycache__", ".next",
-    "dist", "build", ".venv", "venv", "env",
-}
-
-# Recognized source file extensions
-RECOGNIZED_EXTENSIONS: Set[str] = {
-    ".py", ".js", ".ts", ".jsx", ".tsx",
-    ".php", ".java", ".rb", ".go", ".rs",
-    ".vue", ".svelte", ".sql", ".sh",
-    ".css", ".scss", ".html",
-}
+from _common import (
+    MAX_FILE_SIZE,
+    RECOGNIZED_EXTENSIONS,
+    SKIP_DIRS,
+    collect_files,
+    is_binary,
+)
 
 INDENT_LANGUAGES: Set[str] = {".py"}
 BRACE_LANGUAGES: Set[str] = {".js", ".ts", ".jsx", ".tsx", ".php", ".java", ".go", ".rs"}
 
-# Method/function definition patterns (reused from file_stats.py)
-METHOD_PATTERNS: List[re.Pattern] = [
+# Method/function patterns with capture groups for function-name extraction.
+# Mirrors _common.METHOD_PATTERNS but each variant captures the identifier.
+METHOD_PATTERNS_CAPTURE: List[re.Pattern] = [
     re.compile(r"^\s*def\s+(\w+)"),
     re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"),
     re.compile(r"^\s*(?:public|private|protected)\s+(?:static\s+)?function\s+(\w+)"),
@@ -62,42 +57,9 @@ TERNARY_PATTERN: re.Pattern = re.compile(r"(?<!\w)\?(?!\?)")
 NULL_COALESCE_PATTERN: re.Pattern = re.compile(r"\?\?")
 
 
-def is_binary(filepath: str) -> bool:
-    """Detect binary files by checking for null bytes in the first 1024 bytes."""
-    try:
-        with open(filepath, "rb") as f:
-            return b"\x00" in f.read(1024)
-    except (OSError, IOError):
-        return True
-
-
-def collect_files(root_dir: str) -> List[str]:
-    """Walk the directory tree and collect recognized source files."""
-    files: List[str] = []
-    root = os.path.abspath(root_dir)
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
-        for filename in filenames:
-            ext = os.path.splitext(filename)[1].lower()
-            if ext not in RECOGNIZED_EXTENSIONS:
-                continue
-            full_path = os.path.join(dirpath, filename)
-            # Skip symlinks that escape the project root
-            real = os.path.realpath(full_path)
-            try:
-                if os.path.commonpath([real, root]) != root:
-                    continue
-            except ValueError:
-                continue
-            if is_binary(full_path):
-                continue
-            files.append(os.path.relpath(full_path, root))
-    return sorted(files)
-
-
 def _match_function(line: str) -> Optional[str]:
     """Return the function name if the line declares a function, else None."""
-    for pattern in METHOD_PATTERNS:
+    for pattern in METHOD_PATTERNS_CAPTURE:
         m = pattern.match(line)
         if m:
             return m.group(1)
@@ -220,9 +182,6 @@ def _rate_complexity(complexity: int) -> str:
     elif complexity <= 20:
         return "high"
     return "very_high"
-
-
-MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5 MB
 
 
 def analyze_file(filepath: str, ext: str) -> Optional[List[Dict[str, Any]]]:

@@ -18,27 +18,13 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-# Directories to skip during traversal
-SKIP_DIRS: Set[str] = {
-    "node_modules",
-    "vendor",
-    ".git",
-    "__pycache__",
-    ".next",
-    "dist",
-    "build",
-    ".venv",
-    "venv",
-    "env",
-}
-
-# Recognized source file extensions
-RECOGNIZED_EXTENSIONS: Set[str] = {
-    ".py", ".js", ".ts", ".jsx", ".tsx",
-    ".php", ".java", ".rb", ".go", ".rs",
-    ".vue", ".svelte", ".sql", ".sh",
-    ".css", ".scss", ".html",
-}
+from _common import (
+    MAX_FILE_SIZE,
+    RECOGNIZED_EXTENSIONS,
+    SKIP_DIRS,
+    collect_files,
+    is_binary,
+)
 
 # Extensions that contain importable code (subset we parse for imports)
 IMPORTABLE_EXTENSIONS: Set[str] = {
@@ -131,57 +117,6 @@ PYTHON_STDLIB_TOP: Set[str] = {
     "winreg", "winsound", "wsgiref", "xdrlib", "xml", "xmlrpc",
     "zipapp", "zipfile", "zipimport", "zlib", "_thread",
 }
-
-
-def is_binary(filepath: str) -> bool:
-    """Detect binary files by checking for null bytes in the first 1024 bytes."""
-    try:
-        with open(filepath, "rb") as f:
-            chunk = f.read(1024)
-            return b"\x00" in chunk
-    except (OSError, IOError):
-        return True
-
-
-def collect_files(root_dir: str) -> List[str]:
-    """Walk the directory tree and collect recognized source files."""
-    files: List[str] = []
-    root = os.path.abspath(root_dir)
-
-    for dirpath, dirnames, filenames in os.walk(root):
-        # Filter out skip directories (modifying dirnames in-place prunes the walk)
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in SKIP_DIRS and not d.startswith(".")
-        ]
-
-        for filename in filenames:
-            ext = os.path.splitext(filename)[1].lower()
-            if ext not in RECOGNIZED_EXTENSIONS:
-                continue
-
-            full_path = os.path.join(dirpath, filename)
-
-            # Skip symlinks that escape the project root
-            real = os.path.realpath(full_path)
-            try:
-                if os.path.commonpath([real, root]) != root:
-                    continue
-            except ValueError:
-                continue
-
-            # Skip binary files
-            if is_binary(full_path):
-                continue
-
-            # Store as relative path from root_dir
-            rel_path = os.path.relpath(full_path, root)
-            files.append(rel_path)
-
-    return sorted(files)
-
-
-MAX_FILE_SIZE: int = 5 * 1024 * 1024  # 5 MB
 
 
 def read_file_content(filepath: str) -> Optional[str]:

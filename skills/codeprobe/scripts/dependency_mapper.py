@@ -65,8 +65,10 @@ JS_REQUIRE_PATTERN: re.Pattern = re.compile(
 )
 
 # Python: from X import Y, import X
+# Group 1 captures any leading dots (PEP 328 explicit-relative imports);
+# group 2 captures the module path. Both can be empty for `from . import x`.
 PY_FROM_IMPORT_PATTERN: re.Pattern = re.compile(
-    r"^\s*from\s+([\w.]+)\s+import", re.MULTILINE
+    r"^\s*from\s+(\.*)([\w.]+)?\s+import", re.MULTILINE
 )
 PY_IMPORT_PATTERN: re.Pattern = re.compile(
     r"^\s*import\s+([\w.]+)", re.MULTILINE
@@ -218,23 +220,61 @@ def extract_js_imports(content: str, file_rel: str,
 
 def extract_python_imports(content: str, file_rel: str,
                            root: str) -> List[str]:
-    """Extract imports from a Python file."""
+    """Extract imports from a Python file.
+
+    Resolves three import shapes:
+      - Absolute `from foo import x` and `import foo.bar` — try project root,
+        then fall back to the importer's directory (catches sibling-script
+        layouts where the directory is on sys.path at runtime).
+      - PEP 328 explicit-relative `from .x import y`, `from ..x import y` —
+        each leading dot beyond the first walks one directory up from the
+        importer's directory before resolution.
+    """
     imports: List[str] = []
+    file_dir = os.path.join(root, os.path.dirname(file_rel))
 
-    for pattern in (PY_FROM_IMPORT_PATTERN, PY_IMPORT_PATTERN):
-        for match in pattern.finditer(content):
-            module_path = match.group(1)
-            top_level = module_path.split(".")[0]
+    for match in PY_FROM_IMPORT_PATTERN.finditer(content):
+        dots = match.group(1) or ""
+        module_path = match.group(2) or ""
 
-            # Skip stdlib modules
-            if top_level in PYTHON_STDLIB_TOP:
+        if dots:
+            # Explicit-relative: 1 dot = importer's directory, 2 = parent, ...
+            base = file_dir
+            for _ in range(len(dots) - 1):
+                base = os.path.dirname(base)
+            if not module_path:
+                # `from . import X` — resolving requires the imported name,
+                # which the regex does not capture. Skip rather than guess.
                 continue
-
-            # Convert dotted path to filesystem path
             candidate = module_path.replace(".", os.sep)
-            resolved = resolve_path(root, candidate, PY_RESOLVE_EXTENSIONS, root)
+            resolved = resolve_path(base, candidate, PY_RESOLVE_EXTENSIONS, root)
             if resolved:
                 imports.append(resolved)
+            continue
+
+        if not module_path:
+            continue
+        top_level = module_path.split(".")[0]
+        if top_level in PYTHON_STDLIB_TOP:
+            continue
+        candidate = module_path.replace(".", os.sep)
+        resolved = resolve_path(root, candidate, PY_RESOLVE_EXTENSIONS, root)
+        if resolved is None:
+            resolved = resolve_path(file_dir, candidate, PY_RESOLVE_EXTENSIONS, root)
+        if resolved:
+            imports.append(resolved)
+
+    for match in PY_IMPORT_PATTERN.finditer(content):
+        module_path = match.group(1)
+        top_level = module_path.split(".")[0]
+        if top_level in PYTHON_STDLIB_TOP:
+            continue
+        candidate = module_path.replace(".", os.sep)
+        resolved = resolve_path(root, candidate, PY_RESOLVE_EXTENSIONS, root)
+        if resolved is None:
+            resolved = resolve_path(file_dir, candidate, PY_RESOLVE_EXTENSIONS, root)
+        if resolved:
+            imports.append(resolved)
 
     return imports
 

@@ -45,26 +45,30 @@ RECOGNIZED_EXTENSIONS: Set[str] = {
     ".html",
 }
 
-# Method/function definition patterns (no capture groups)
+# Method/function definition patterns. Each variant captures the function's
+# identifier under the group name "name" — callers that only need a boolean
+# match (e.g., file_stats.count_methods) can ignore the group; callers that
+# need the identifier (e.g., complexity_scorer._match_function) read it via
+# m.group("name").
 METHOD_PATTERNS: List[re.Pattern] = [
     # Python
-    re.compile(r"^\s*def\s+\w+"),
+    re.compile(r"^\s*def\s+(?P<name>\w+)"),
     # JavaScript/TypeScript/PHP named functions
-    re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+\w+"),
+    re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(?P<name>\w+)"),
     # PHP class methods
-    re.compile(r"^\s*(?:public|private|protected)\s+(?:static\s+)?function\s+\w+"),
+    re.compile(r"^\s*(?:public|private|protected)\s+(?:static\s+)?function\s+(?P<name>\w+)"),
     # Java/TypeScript class methods (public/private/protected return_type methodName)
     re.compile(
-        r"^\s*(?:public|private|protected)\s+(?:static\s+)?(?:async\s+)?\w+\s+\w+\s*\("
+        r"^\s*(?:public|private|protected)\s+(?:static\s+)?(?:async\s+)?\w+\s+(?P<name>\w+)\s*\("
     ),
     # Rust functions
-    re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+\w+"),
-    # Go functions
-    re.compile(r"^\s*func\s+"),
+    re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(?P<name>\w+)"),
+    # Go functions (optional receiver in parens, then name)
+    re.compile(r"^\s*func\s+(?:\(\w+\s+\*?\w+\)\s+)?(?P<name>\w+)"),
     # Ruby methods
-    re.compile(r"^\s*def\s+\w+"),
+    re.compile(r"^\s*def\s+(?P<name>\w+)"),
     # Arrow functions assigned to const/let/var at class level (heuristic)
-    re.compile(r"^\s*(?:const|let|var)\s+\w+\s*=\s*(?:async\s+)?\(.*\)\s*=>"),
+    re.compile(r"^\s*(?:const|let|var)\s+(?P<name>\w+)\s*=\s*(?:async\s+)?\(.*\)\s*=>"),
 ]
 
 

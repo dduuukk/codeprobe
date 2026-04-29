@@ -19,27 +19,12 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from _common import (
     MAX_FILE_SIZE,
-    RECOGNIZED_EXTENSIONS,
-    SKIP_DIRS,
+    METHOD_PATTERNS,
     collect_files,
-    is_binary,
 )
 
 INDENT_LANGUAGES: Set[str] = {".py"}
 BRACE_LANGUAGES: Set[str] = {".js", ".ts", ".jsx", ".tsx", ".php", ".java", ".go", ".rs"}
-
-# Method/function patterns with capture groups for function-name extraction.
-# Mirrors _common.METHOD_PATTERNS but each variant captures the identifier.
-METHOD_PATTERNS_CAPTURE: List[re.Pattern] = [
-    re.compile(r"^\s*def\s+(\w+)"),
-    re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"),
-    re.compile(r"^\s*(?:public|private|protected)\s+(?:static\s+)?function\s+(\w+)"),
-    re.compile(r"^\s*(?:public|private|protected)\s+(?:static\s+)?(?:async\s+)?\w+\s+(\w+)\s*\("),
-    re.compile(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)"),
-    re.compile(r"^\s*func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)"),
-    re.compile(r"^\s*def\s+(\w+)"),
-    re.compile(r"^\s*(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(.*\)\s*=>"),
-]
 
 # Decision point patterns — each match adds 1 to base complexity of 1
 DECISION_PATTERNS: List[re.Pattern] = [
@@ -59,10 +44,10 @@ NULL_COALESCE_PATTERN: re.Pattern = re.compile(r"\?\?")
 
 def _match_function(line: str) -> Optional[str]:
     """Return the function name if the line declares a function, else None."""
-    for pattern in METHOD_PATTERNS_CAPTURE:
+    for pattern in METHOD_PATTERNS:
         m = pattern.match(line)
         if m:
-            return m.group(1)
+            return m.group("name")
     return None
 
 

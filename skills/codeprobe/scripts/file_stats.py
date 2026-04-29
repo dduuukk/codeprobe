@@ -20,10 +20,7 @@ from typing import Any, Dict, List, Optional, Set
 from _common import (
     METHOD_PATTERNS,
     MAX_FILE_SIZE,
-    RECOGNIZED_EXTENSIONS,
-    SKIP_DIRS,
     collect_files,
-    is_binary,
 )
 
 # Patterns for test file detection

@@ -15,22 +15,12 @@ import json
 import os
 import re
 import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from _common import (
     MAX_FILE_SIZE,
-    RECOGNIZED_EXTENSIONS,
-    SKIP_DIRS,
     collect_files,
-    is_binary,
 )
-
-# Extensions that contain importable code (subset we parse for imports)
-IMPORTABLE_EXTENSIONS: Set[str] = {
-    ".py", ".js", ".ts", ".jsx", ".tsx",
-    ".php", ".go",
-}
 
 # Common extensions to try when resolving an import path to a file
 JS_RESOLVE_EXTENSIONS: List[str] = [
